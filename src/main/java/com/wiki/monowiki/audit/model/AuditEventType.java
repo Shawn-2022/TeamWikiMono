@@ -1,0 +1,19 @@
+package com.wiki.monowiki.audit.model;
+
+public enum AuditEventType {
+    SPACE_CREATED,
+
+    ARTICLE_CREATED,
+    ARTICLE_TITLE_UPDATED,
+
+    VERSION_ADDED,
+
+    REVIEW_SUBMITTED,
+    REVIEW_APPROVED,
+    REVIEW_REJECTED,
+
+    TAG_ADDED_TO_ARTICLE,
+    TAG_REMOVED_FROM_ARTICLE,
+
+    COMMENT_ADDED
+}
