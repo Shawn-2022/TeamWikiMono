@@ -1,7 +1,9 @@
 package com.wiki.monowiki.unit.audit.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wiki.monowiki.audit.model.*;
+import com.wiki.monowiki.audit.model.AuditEntityType;
+import com.wiki.monowiki.audit.model.AuditEventLog;
+import com.wiki.monowiki.audit.model.AuditEventType;
 import com.wiki.monowiki.audit.repo.AuditEventLogRepository;
 import com.wiki.monowiki.audit.service.ActorIdResolver;
 import com.wiki.monowiki.audit.service.AuditEventListener;
@@ -15,9 +17,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuditEventListenerTest {

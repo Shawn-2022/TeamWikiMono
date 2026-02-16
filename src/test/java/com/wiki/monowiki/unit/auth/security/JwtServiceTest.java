@@ -6,7 +6,8 @@ import com.wiki.monowiki.auth.security.JwtService;
 import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtServiceTest {
 

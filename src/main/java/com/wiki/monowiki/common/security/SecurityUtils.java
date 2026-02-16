@@ -33,6 +33,6 @@ public final class SecurityUtils {
 
     public static String username() {
 	Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-	return auth != null ? auth.getName() : null;
+	return auth != null ? auth.getName() : "SYSTEM";
     }
 }

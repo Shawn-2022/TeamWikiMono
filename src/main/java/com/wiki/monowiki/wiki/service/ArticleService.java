@@ -1,17 +1,23 @@
 package com.wiki.monowiki.wiki.service;
 
 import com.wiki.monowiki.common.security.SecurityUtils;
-import com.wiki.monowiki.wiki.dto.ArticleDtos.*;
+import com.wiki.monowiki.wiki.dto.ArticleDtos.ArticleResponse;
+import com.wiki.monowiki.wiki.dto.ArticleDtos.CreateArticleRequest;
+import com.wiki.monowiki.wiki.dto.ArticleDtos.TagSummary;
+import com.wiki.monowiki.wiki.dto.ArticleDtos.UpdateTitleRequest;
 import com.wiki.monowiki.wiki.model.*;
 import com.wiki.monowiki.wiki.repo.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class ArticleService {
 
@@ -68,6 +74,9 @@ public class ArticleService {
 	versions.save(v1);
 	a.setCurrentVersionNo(1);
 
+	log.info("ARTICLE_CREATED: articleId={} spaceKey={} slug={} actor={} status={}",
+		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), actor, a.getStatus());
+
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_CREATED,
 		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
@@ -122,6 +131,8 @@ public class ArticleService {
 
 	// Business rule: only drafts are updatable (published/in-review must go through draft -> review flow)
 	if (a.getStatus() != ArticleStatus.DRAFT) {
+	    log.warn("ARTICLE_TITLE_UPDATE_BLOCKED: articleId={} actor={} status={}",
+		    a.getId(), safeUsername(), a.getStatus());
 	    throw new IllegalArgumentException("Only draft articles can be updated");
 	}
 
@@ -129,6 +140,9 @@ public class ArticleService {
 	a.setTitle(req.title().trim());
 
 	boolean isPublic = false; // drafts are not public
+
+	log.info("ARTICLE_TITLE_UPDATED: articleId={} actor={} oldTitle='{}' newTitle='{}'",
+		a.getId(), safeUsername(), safeShort(oldTitle), safeShort(a.getTitle()));
 
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_TITLE_UPDATED,
@@ -154,16 +168,21 @@ public class ArticleService {
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (a.getStatus() == ArticleStatus.ARCHIVED) {
+	    log.info("ARTICLE_ARCHIVE_IDEMPOTENT: articleId={} actor={}", a.getId(), safeUsername());
 	    return toResponse(a, latestContent(a)); // idempotent
 	}
 
 	// Keep review workflow consistent (no dangling pending reviews).
 	if (a.getStatus() == ArticleStatus.IN_REVIEW) {
+	    log.warn("ARTICLE_ARCHIVE_BLOCKED_IN_REVIEW: articleId={} actor={}", a.getId(), safeUsername());
 	    throw new IllegalArgumentException("Cannot archive an article while it is in review");
 	}
 
 	ArticleStatus from = a.getStatus();
 	a.setStatus(ArticleStatus.ARCHIVED);
+
+	log.info("ARTICLE_ARCHIVED: articleId={} spaceKey={} slug={} actor={} fromStatus={} toStatus={}",
+		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), safeUsername(), from, a.getStatus());
 
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_ARCHIVED,
@@ -189,10 +208,15 @@ public class ArticleService {
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (a.getStatus() != ArticleStatus.ARCHIVED) {
+	    log.warn("ARTICLE_UNARCHIVE_BLOCKED: articleId={} actor={} status={}",
+		    a.getId(), safeUsername(), a.getStatus());
 	    throw new IllegalArgumentException("Only archived articles can be restored");
 	}
 
 	a.setStatus(ArticleStatus.DRAFT);
+
+	log.info("ARTICLE_UNARCHIVED: articleId={} spaceKey={} slug={} actor={} toStatus={}",
+		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), safeUsername(), a.getStatus());
 
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_UNARCHIVED,
@@ -248,6 +272,12 @@ public class ArticleService {
     private String safeUsername() {
 	String u = SecurityUtils.username();
 	return (u == null || u.isBlank()) ? "system" : u;
+    }
+
+    private String safeShort(String s) {
+	if (s == null) return "";
+	String t = s.replaceAll("\\s+", " ").trim();
+	return t.length() <= 120 ? t : t.substring(0, 120) + "...";
     }
 
     private ArticleResponse toResponse(Article a, String latestContent) {

@@ -5,7 +5,9 @@ import com.wiki.monowiki.audit.service.WikiAuditEvent;
 import com.wiki.monowiki.unit.util.TestAuth;
 import com.wiki.monowiki.wiki.dto.TagDtos.CreateTagRequest;
 import com.wiki.monowiki.wiki.model.*;
-import com.wiki.monowiki.wiki.repo.*;
+import com.wiki.monowiki.wiki.repo.ArticleRepository;
+import com.wiki.monowiki.wiki.repo.ArticleTagRepository;
+import com.wiki.monowiki.wiki.repo.TagRepository;
 import com.wiki.monowiki.wiki.service.TagService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -18,9 +20,10 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TagServiceTest {

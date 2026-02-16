@@ -2,7 +2,8 @@ package com.wiki.monowiki.wiki.controller;
 
 import com.wiki.monowiki.common.response.BasePageResponse;
 import com.wiki.monowiki.common.response.BaseResponse;
-import com.wiki.monowiki.wiki.dto.ReviewDtos.*;
+import com.wiki.monowiki.wiki.dto.ReviewDtos.RejectRequest;
+import com.wiki.monowiki.wiki.dto.ReviewDtos.ReviewRequestResponse;
 import com.wiki.monowiki.wiki.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

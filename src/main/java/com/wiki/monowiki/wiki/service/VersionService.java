@@ -1,21 +1,22 @@
 package com.wiki.monowiki.wiki.service;
 
-import com.wiki.monowiki.wiki.dto.VersionDtos.*;
+import com.wiki.monowiki.common.security.SecurityUtils;
+import com.wiki.monowiki.wiki.dto.VersionDtos.CreateVersionRequest;
+import com.wiki.monowiki.wiki.dto.VersionDtos.VersionResponse;
 import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleStatus;
 import com.wiki.monowiki.wiki.model.ArticleVersion;
 import com.wiki.monowiki.wiki.repo.ArticleRepository;
 import com.wiki.monowiki.wiki.repo.ArticleVersionRepository;
-import com.wiki.monowiki.common.security.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 public class VersionService {
 
     public static final String ARTICLE_NOT_FOUND = "Article not found";
@@ -31,16 +32,24 @@ public class VersionService {
 
     @Transactional
     public VersionResponse create(Long articleId, CreateVersionRequest req) {
+        log.info("Creating new version for articleId={} by user={}", articleId, currentUsername());
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
+		.orElseThrow(() -> {
+                log.warn("Article not found for id={} during version creation", articleId);
+                return new NotFoundException(ARTICLE_NOT_FOUND);
+            });
 
 	if (a.getStatus() != ArticleStatus.DRAFT) {
+	    log.warn("VERSION_ADD_BLOCKED: articleId={} actor={} status={}",
+		    a.getId(), SecurityUtils.username(), a.getStatus());
 	    throw new IllegalArgumentException("Versions can only be added while article is in DRAFT");
 	}
 
 	int nextNo = versions.findTopByArticleOrderByVersionNoDesc(a)
 		.map(v -> v.getVersionNo() + 1)
 		.orElse(1);
+
+	log.debug("Next version number for articleId={}: {}", articleId, nextNo);
 
 	ArticleVersion v = ArticleVersion.builder()
 		.article(a)
@@ -52,6 +61,8 @@ public class VersionService {
 	v = versions.save(v);
 
 	a.setCurrentVersionNo(nextNo);
+
+	log.info("Version {} created for articleId={} by user={}", v.getVersionNo(), articleId, v.getCreatedBy());
 
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.VERSION_ADDED,
@@ -70,35 +81,50 @@ public class VersionService {
 
     @Transactional(readOnly = true)
     public Page<VersionResponse> list(Long articleId, Pageable pageable) {
+        log.info("Listing versions for articleId={} by user={}", articleId, currentUsername());
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
+		.orElseThrow(() -> {
+                log.warn("Article not found for id={} during version list", articleId);
+                return new NotFoundException(ARTICLE_NOT_FOUND);
+            });
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
+            log.warn("Access denied for viewer to list versions of non-published articleId={}", articleId);
 	    throw new NotFoundException(ARTICLE_NOT_FOUND);
 	}
 
+        log.debug("Fetching versions for articleId={} with pageable={}", articleId, pageable);
 	return versions.findByArticle(a, pageable)
 		.map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
     public VersionResponse get(Long articleId, Integer versionNo) {
+        log.info("Getting version {} for articleId={} by user={}", versionNo, articleId, currentUsername());
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
+		.orElseThrow(() -> {
+                log.warn("Article not found for id={} during version get", articleId);
+                return new NotFoundException(ARTICLE_NOT_FOUND);
+            });
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
+            log.warn("Access denied for viewer to get version of non-published articleId={}", articleId);
 	    throw new NotFoundException(ARTICLE_NOT_FOUND);
 	}
 
 	ArticleVersion v = versions.findByArticleAndVersionNo(a, versionNo)
-		.orElseThrow(() -> new NotFoundException("Version not found"));
+		.orElseThrow(() -> {
+                    log.warn("Version {} not found for articleId={}", versionNo, articleId);
+                    return new NotFoundException("Version not found");
+                });
 
+        log.info("Returning version {} for articleId={}", versionNo, articleId);
 	return toResponse(v);
     }
 
     private String currentUsername() {
-	Authentication a = SecurityContextHolder.getContext().getAuthentication();
-	return (a != null) ? a.getName() : "system";
+	String u = SecurityUtils.username();
+	return (u == null || u.isBlank()) ? "system" : u;
     }
 
     private VersionResponse toResponse(ArticleVersion v) {

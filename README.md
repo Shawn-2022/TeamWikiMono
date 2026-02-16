@@ -1,4 +1,4 @@
-# Mini Team Wiki (Spring Boot 4 Monolith)
+# Mini Team Wiki (Spring Boot Monolith)
 
 This repository implements the **Mini Team Wiki** as a **single monolith**, intentionally structured so it can later be split into **three microservices**:
 

@@ -4,7 +4,10 @@ import com.wiki.monowiki.audit.model.AuditEventType;
 import com.wiki.monowiki.audit.service.WikiAuditEvent;
 import com.wiki.monowiki.unit.util.TestAuth;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.CreateArticleRequest;
-import com.wiki.monowiki.wiki.model.*;
+import com.wiki.monowiki.wiki.model.Article;
+import com.wiki.monowiki.wiki.model.ArticleStatus;
+import com.wiki.monowiki.wiki.model.ArticleVersion;
+import com.wiki.monowiki.wiki.model.Space;
 import com.wiki.monowiki.wiki.repo.*;
 import com.wiki.monowiki.wiki.service.ArticleService;
 import com.wiki.monowiki.wiki.service.SlugUtil;
@@ -16,12 +19,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
