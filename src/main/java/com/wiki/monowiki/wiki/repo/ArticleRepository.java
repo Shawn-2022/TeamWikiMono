@@ -15,6 +15,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     Page<Article> findBySpace(Space space, Pageable pageable);
 
+    Page<Article> findBySpaceAndStatusNot(Space space, ArticleStatus status, Pageable pageable);
+
     Page<Article> findBySpaceAndStatus(Space space, ArticleStatus status, Pageable pageable);
 
     Optional<Article> findBySpaceAndSlug(Space space, String slug);
@@ -30,6 +32,24 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
                or lower(v.content) like lower(concat('%', :q, '%')))
         """)
     Page<Article> searchLatestInSpace(@Param("spaceKey") String spaceKey,
+            @Param("q") String q,
+            Pageable pageable);
+
+    /**
+     * Search across latest version but exclude soft-deleted (ARCHIVED) articles.
+     *
+     * Uses cast(status as string) to avoid PostgreSQL enum type-cast issues for literals.
+     */
+    @Query("""
+        select a from Article a
+        join ArticleVersion v
+          on v.article = a and v.versionNo = a.currentVersionNo
+        where a.space.spaceKey = :spaceKey
+          and cast(a.status as string) <> 'ARCHIVED'
+          and (lower(a.title) like lower(concat('%', :q, '%'))
+               or lower(v.content) like lower(concat('%', :q, '%')))
+        """)
+    Page<Article> searchLatestNonArchivedInSpace(@Param("spaceKey") String spaceKey,
             @Param("q") String q,
             Pageable pageable);
 

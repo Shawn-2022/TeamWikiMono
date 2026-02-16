@@ -4,6 +4,8 @@ import com.wiki.monowiki.common.response.BasePageResponse;
 import com.wiki.monowiki.common.response.BaseResponse;
 import com.wiki.monowiki.wiki.dto.CommentDtos.*;
 import com.wiki.monowiki.wiki.service.CommentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
@@ -11,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Tag(name = "Comments", description = "Comments are attached to a specific article version.")
 public class CommentController {
 
     private final CommentService service;
@@ -21,6 +24,7 @@ public class CommentController {
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @PostMapping("/articles/{id}/versions/{no}/comments")
+    @Operation(summary = "Add comment to a version (ADMIN/EDITOR)")
     public BaseResponse<CommentResponse> create(@PathVariable Long id,
 	    @PathVariable Integer no,
 	    @Valid @RequestBody CreateCommentRequest req) {
@@ -28,6 +32,7 @@ public class CommentController {
     }
 
     @GetMapping("/articles/{id}/versions/{no}/comments")
+    @Operation(summary = "List comments (VIEWER only if article is PUBLISHED)")
     public BasePageResponse<CommentResponse> list(
 	    @PathVariable Long id,
 	    @PathVariable Integer no,

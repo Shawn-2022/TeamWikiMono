@@ -16,7 +16,11 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI openAPI() {
 	return new OpenAPI()
-		.info(new Info().title("Mini Team Wiki API").version("v1"))
+		.info(new Info()
+			.title("Mini Team Wiki API")
+			.version("v1")
+			.description("All endpoints return BaseResponse / BasePageResponse wrappers. "
+				     + "Authenticate via /auth/login and use Swagger's Authorize button (Bearer JWT)."))
 		.components(new Components().addSecuritySchemes(
 			BEARER_AUTH,
 			new SecurityScheme()

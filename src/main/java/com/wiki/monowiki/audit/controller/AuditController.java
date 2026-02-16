@@ -5,6 +5,8 @@ import com.wiki.monowiki.audit.model.*;
 import com.wiki.monowiki.audit.service.AuditQueryService;
 import com.wiki.monowiki.common.response.BasePageResponse;
 import com.wiki.monowiki.common.security.SecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 
 @RestController
+@Tag(name = "Audit", description = "Audit log (ADMIN/EDITOR) and space activity feed (all roles).")
 public class AuditController {
 
     private final AuditQueryService service;
@@ -22,6 +25,7 @@ public class AuditController {
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @GetMapping("/audit")
+    @Operation(summary = "Search audit events (ADMIN/EDITOR)")
     public BasePageResponse<AuditEventResponse> audit(
 	    @RequestParam(required = false) String spaceKey,
 	    @RequestParam(required = false) Long articleId,
@@ -43,6 +47,7 @@ public class AuditController {
     }
 
     @GetMapping("/spaces/{spaceKey}/activity")
+    @Operation(summary = "Recent activity for a space (all roles)", description = "VIEWERs only see public audit events.")
     public BasePageResponse<AuditEventResponse> recentActivity(
 	    @PathVariable String spaceKey,
 	    @RequestParam(defaultValue = "0") int page,

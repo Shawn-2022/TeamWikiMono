@@ -6,6 +6,7 @@ import com.wiki.monowiki.auth.repo.UserRepository;
 import com.wiki.monowiki.auth.security.JwtService;
 import com.wiki.monowiki.common.response.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Auth", description = "JWT login. Use the returned token in Swagger's Authorize button.")
 public class AuthController {
 
     private final AuthenticationManager authManager;
@@ -28,7 +30,11 @@ public class AuthController {
     /**
      * Override global BearerAuth in OpenAPI so Swagger UI clearly shows this endpoint as public.
      */
-    @Operation(security = {})
+    @Operation(
+	    security = {},
+	    summary = "Login (public)",
+	    description = "Authenticate with username/password and receive a JWT token."
+    )
     @PostMapping("/login")
     public BaseResponse<LoginResponse> login(@Valid @RequestBody LoginRequest req) {
 	authManager.authenticate(

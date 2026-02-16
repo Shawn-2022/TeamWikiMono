@@ -5,6 +5,8 @@ public enum AuditEventType {
 
     ARTICLE_CREATED,
     ARTICLE_TITLE_UPDATED,
+    ARTICLE_ARCHIVED,
+    ARTICLE_UNARCHIVED,
 
     VERSION_ADDED,
 

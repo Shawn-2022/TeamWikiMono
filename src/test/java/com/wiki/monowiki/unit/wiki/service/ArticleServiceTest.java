@@ -127,7 +127,7 @@ class ArticleServiceTest {
 	when(articleTags.findByArticle(published)).thenReturn(List.of());
 	when(comments.countByArticleAndVersionNo(published, 1)).thenReturn(0L);
 
-	Page<?> page = service.list("ENG", PageRequest.of(0, 10));
+	Page<?> page = service.list("ENG", false,PageRequest.of(0, 10));
 	assertThat(page.getTotalElements()).isEqualTo(1);
 
 	verify(articles).findBySpaceAndStatus(eq(space), eq(ArticleStatus.PUBLISHED), any(Pageable.class));

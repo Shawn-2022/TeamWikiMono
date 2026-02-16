@@ -16,6 +16,7 @@ import java.util.Map;
 public class ArticleService {
 
     public static final String SPACE_NOT_FOUND = "Space not found";
+    public static final String ARTICLE_NOT_FOUND = "Article not found";
     private final ArticleRepository articles;
     private final SpaceRepository spaces;
     private final ArticleVersionRepository versions;
@@ -83,13 +84,18 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ArticleResponse> list(String spaceKey, Pageable pageable) {
+    public Page<ArticleResponse> list(String spaceKey, boolean includeArchived, Pageable pageable) {
 	Space space = spaces.findBySpaceKey(spaceKey)
 		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
-	Page<Article> page = SecurityUtils.isViewer()
-		? articles.findBySpaceAndStatus(space, ArticleStatus.PUBLISHED, pageable)
-		: articles.findBySpace(space, pageable);
+	Page<Article> page;
+	if (SecurityUtils.isViewer()) {
+	    page = articles.findBySpaceAndStatus(space, ArticleStatus.PUBLISHED, pageable);
+	} else if (includeArchived) {
+	    page = articles.findBySpace(space, pageable);
+	} else {
+	    page = articles.findBySpaceAndStatusNot(space, ArticleStatus.ARCHIVED, pageable);
+	}
 
 	return page.map(a -> toResponse(a, latestContent(a)));
     }
@@ -100,10 +106,10 @@ public class ArticleService {
 		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
 	Article a = articles.findBySpaceAndSlug(space, slug)
-		.orElseThrow(() -> new NotFoundException("Article not found"));
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
-	    throw new NotFoundException("Article not found");
+	    throw new NotFoundException(ARTICLE_NOT_FOUND);
 	}
 
 	return toResponse(a, latestContent(a));
@@ -112,7 +118,7 @@ public class ArticleService {
     @Transactional
     public ArticleResponse updateTitle(Long articleId, UpdateTitleRequest req) {
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException("Article not found"));
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	// Business rule: only drafts are updatable (published/in-review must go through draft -> review flow)
 	if (a.getStatus() != ArticleStatus.DRAFT) {
@@ -134,6 +140,70 @@ public class ArticleService {
 		"Updated article title: " + a.getTitle(),
 		isPublic,
 		Map.of("slug", a.getSlug(), "oldTitle", oldTitle, "newTitle", a.getTitle())
+	));
+
+	return toResponse(a, latestContent(a));
+    }
+
+    /**
+     * Optional (Nice-to-have): soft delete.
+     */
+    @Transactional
+    public ArticleResponse archive(Long articleId) {
+	Article a = articles.findById(articleId)
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
+
+	if (a.getStatus() == ArticleStatus.ARCHIVED) {
+	    return toResponse(a, latestContent(a)); // idempotent
+	}
+
+	// Keep review workflow consistent (no dangling pending reviews).
+	if (a.getStatus() == ArticleStatus.IN_REVIEW) {
+	    throw new IllegalArgumentException("Cannot archive an article while it is in review");
+	}
+
+	ArticleStatus from = a.getStatus();
+	a.setStatus(ArticleStatus.ARCHIVED);
+
+	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
+		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_ARCHIVED,
+		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
+		a.getId(),
+		a.getSpace().getSpaceKey(),
+		a.getId(),
+		com.wiki.monowiki.audit.service.AuditActor.username(),
+		"Archived article: " + a.getTitle(),
+		false,
+		Map.of("slug", a.getSlug(), "fromStatus", String.valueOf(from))
+	));
+
+	return toResponse(a, latestContent(a));
+    }
+
+    /**
+     * Optional (Nice-to-have): restore soft-deleted article back to DRAFT.
+     */
+    @Transactional
+    public ArticleResponse unarchive(Long articleId) {
+	Article a = articles.findById(articleId)
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
+
+	if (a.getStatus() != ArticleStatus.ARCHIVED) {
+	    throw new IllegalArgumentException("Only archived articles can be restored");
+	}
+
+	a.setStatus(ArticleStatus.DRAFT);
+
+	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
+		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_UNARCHIVED,
+		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
+		a.getId(),
+		a.getSpace().getSpaceKey(),
+		a.getId(),
+		com.wiki.monowiki.audit.service.AuditActor.username(),
+		"Restored article to draft: " + a.getTitle(),
+		false,
+		Map.of("slug", a.getSlug())
 	));
 
 	return toResponse(a, latestContent(a));

@@ -34,10 +34,15 @@ public class SearchService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ArticleResponse> search(String spaceKey, String q, Pageable pageable) {
-	Page<Article> page = SecurityUtils.isViewer()
-		? articles.searchLatestPublishedInSpace(spaceKey, q, pageable)
-		: articles.searchLatestInSpace(spaceKey, q, pageable);
+    public Page<ArticleResponse> search(String spaceKey, String q, boolean includeArchived, Pageable pageable) {
+	Page<Article> page;
+	if (SecurityUtils.isViewer()) {
+	    page = articles.searchLatestPublishedInSpace(spaceKey, q, pageable);
+	} else if (includeArchived) {
+	    page = articles.searchLatestInSpace(spaceKey, q, pageable);
+	} else {
+	    page = articles.searchLatestNonArchivedInSpace(spaceKey, q, pageable);
+	}
 
 	return page.map(this::toResponse);
     }
