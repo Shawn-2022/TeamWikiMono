@@ -1,5 +1,6 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.CommentDtos.*;
 import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleStatus;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 public class CommentService {
@@ -37,7 +37,7 @@ public class CommentService {
     public CommentResponse create(Long articleId, Integer versionNo, CreateCommentRequest req) {
 	Article a = articles.findById(articleId).orElseThrow(() -> new NotFoundException("Article not found"));
 
-	if (isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
+	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
 	    throw new NotFoundException("Article not found");
 	}
 
@@ -73,7 +73,7 @@ public class CommentService {
     public Page<CommentResponse> list(Long articleId, Integer versionNo, Pageable pageable) {
 	Article a = articles.findById(articleId).orElseThrow(() -> new NotFoundException("Article not found"));
 
-	if (isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
+	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
 	    throw new NotFoundException("Article not found");
 	}
 
@@ -92,12 +92,6 @@ public class CommentService {
 		c.getCreatedBy(),
 		c.getCreatedAt()
 	);
-    }
-
-    private boolean isViewer() {
-	Authentication a = SecurityContextHolder.getContext().getAuthentication();
-	if (a == null) return false;
-	return a.getAuthorities().stream().anyMatch(g -> Objects.equals(g.getAuthority(), "ROLE_VIEWER"));
     }
 
     private String currentUsername() {

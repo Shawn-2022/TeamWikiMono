@@ -73,7 +73,9 @@ class VersionServiceTest {
 	Article a = Article.builder().id(10L).status(ArticleStatus.PUBLISHED).build();
 	when(articles.findById(10L)).thenReturn(Optional.of(a));
 
-	assertThatThrownBy(() -> service.create(10L, new CreateVersionRequest("x")))
+	CreateVersionRequest request = new CreateVersionRequest("x");
+
+	assertThatThrownBy(() -> service.create(10L, request))
 		.isInstanceOf(IllegalArgumentException.class)
 		.hasMessageContaining("DRAFT");
     }

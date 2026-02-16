@@ -1,22 +1,21 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.*;
 import com.wiki.monowiki.wiki.model.*;
 import com.wiki.monowiki.wiki.repo.*;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.*;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 public class ArticleService {
 
+    public static final String SPACE_NOT_FOUND = "Space not found";
     private final ArticleRepository articles;
     private final SpaceRepository spaces;
     private final ArticleVersionRepository versions;
@@ -41,12 +40,12 @@ public class ArticleService {
     @Transactional
     public ArticleResponse create(String spaceKey, CreateArticleRequest req) {
 	Space space = spaces.findBySpaceKey(spaceKey)
-		.orElseThrow(() -> new NotFoundException("Space not found"));
+		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
 	String baseSlug = SlugUtil.slugify(req.title());
 	String slug = ensureUniqueSlug(space, baseSlug);
 
-	String actor = currentUsername();
+	String actor = safeUsername();
 
 	Article a = Article.builder()
 		.space(space)
@@ -86,9 +85,9 @@ public class ArticleService {
     @Transactional(readOnly = true)
     public Page<ArticleResponse> list(String spaceKey, Pageable pageable) {
 	Space space = spaces.findBySpaceKey(spaceKey)
-		.orElseThrow(() -> new NotFoundException("Space not found"));
+		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
-	Page<Article> page = isViewer()
+	Page<Article> page = SecurityUtils.isViewer()
 		? articles.findBySpaceAndStatus(space, ArticleStatus.PUBLISHED, pageable)
 		: articles.findBySpace(space, pageable);
 
@@ -98,12 +97,12 @@ public class ArticleService {
     @Transactional(readOnly = true)
     public ArticleResponse getBySlug(String spaceKey, String slug) {
 	Space space = spaces.findBySpaceKey(spaceKey)
-		.orElseThrow(() -> new NotFoundException("Space not found"));
+		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
 	Article a = articles.findBySpaceAndSlug(space, slug)
 		.orElseThrow(() -> new NotFoundException("Article not found"));
 
-	if (isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
+	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
 	    throw new NotFoundException("Article not found");
 	}
 
@@ -115,10 +114,15 @@ public class ArticleService {
 	Article a = articles.findById(articleId)
 		.orElseThrow(() -> new NotFoundException("Article not found"));
 
+	// Business rule: only drafts are updatable (published/in-review must go through draft -> review flow)
+	if (a.getStatus() != ArticleStatus.DRAFT) {
+	    throw new IllegalArgumentException("Only draft articles can be updated");
+	}
+
 	String oldTitle = a.getTitle();
 	a.setTitle(req.title().trim());
 
-	boolean isPublic = a.getStatus() == ArticleStatus.PUBLISHED;
+	boolean isPublic = false; // drafts are not public
 
 	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
 		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_TITLE_UPDATED,
@@ -171,15 +175,9 @@ public class ArticleService {
 	return slug;
     }
 
-    private boolean isViewer() {
-	Authentication a = SecurityContextHolder.getContext().getAuthentication();
-	if (a == null) return false;
-	return a.getAuthorities().stream().anyMatch(g -> Objects.equals(g.getAuthority(), "ROLE_VIEWER"));
-    }
-
-    private String currentUsername() {
-	Authentication a = SecurityContextHolder.getContext().getAuthentication();
-	return (a != null) ? a.getName() : "system";
+    private String safeUsername() {
+	String u = SecurityUtils.username();
+	return (u == null || u.isBlank()) ? "system" : u;
     }
 
     private ArticleResponse toResponse(Article a, String latestContent) {

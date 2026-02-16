@@ -5,6 +5,7 @@ import com.wiki.monowiki.auth.dto.AuthDtos.LoginResponse;
 import com.wiki.monowiki.auth.repo.UserRepository;
 import com.wiki.monowiki.auth.security.JwtService;
 import com.wiki.monowiki.common.response.BaseResponse;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.*;
@@ -24,6 +25,10 @@ public class AuthController {
 	this.users = users;
     }
 
+    /**
+     * Override global BearerAuth in OpenAPI so Swagger UI clearly shows this endpoint as public.
+     */
+    @Operation(security = {})
     @PostMapping("/login")
     public BaseResponse<LoginResponse> login(@Valid @RequestBody LoginRequest req) {
 	authManager.authenticate(

@@ -4,6 +4,7 @@ import com.wiki.monowiki.wiki.dto.TagDtos.*;
 import com.wiki.monowiki.wiki.model.*;
 import com.wiki.monowiki.wiki.repo.*;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,8 +33,13 @@ public class TagService {
 	if (tags.existsByNameIgnoreCase(name)) {
 	    throw new IllegalArgumentException("Tag already exists");
 	}
-	Tag t = tags.save(Tag.builder().name(name).build());
-	return new TagResponse(t.getId(), t.getName());
+	try {
+	    Tag t = tags.save(Tag.builder().name(name).build());
+	    return new TagResponse(t.getId(), t.getName());
+	} catch (DataIntegrityViolationException ex) {
+	    // Race-condition safe (DB unique index is the final authority)
+	    throw new IllegalArgumentException("Tag already exists");
+	}
     }
 
     @Transactional(readOnly = true)

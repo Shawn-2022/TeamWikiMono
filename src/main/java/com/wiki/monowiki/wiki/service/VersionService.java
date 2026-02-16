@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class VersionService {
 
+    public static final String ARTICLE_NOT_FOUND = "Article not found";
     private final ArticleRepository articles;
     private final ArticleVersionRepository versions;
     private final ApplicationEventPublisher publisher;
@@ -31,7 +32,7 @@ public class VersionService {
     @Transactional
     public VersionResponse create(Long articleId, CreateVersionRequest req) {
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException("Article not found"));
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (a.getStatus() != ArticleStatus.DRAFT) {
 	    throw new IllegalArgumentException("Versions can only be added while article is in DRAFT");
@@ -70,10 +71,10 @@ public class VersionService {
     @Transactional(readOnly = true)
     public Page<VersionResponse> list(Long articleId, Pageable pageable) {
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException("Article not found"));
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
-	    throw new NotFoundException("Article not found");
+	    throw new NotFoundException(ARTICLE_NOT_FOUND);
 	}
 
 	return versions.findByArticle(a, pageable)
@@ -83,10 +84,10 @@ public class VersionService {
     @Transactional(readOnly = true)
     public VersionResponse get(Long articleId, Integer versionNo) {
 	Article a = articles.findById(articleId)
-		.orElseThrow(() -> new NotFoundException("Article not found"));
+		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
-	    throw new NotFoundException("Article not found");
+	    throw new NotFoundException(ARTICLE_NOT_FOUND);
 	}
 
 	ArticleVersion v = versions.findByArticleAndVersionNo(a, versionNo)

@@ -3,6 +3,7 @@ package com.wiki.monowiki.common.exception;
 import com.wiki.monowiki.common.response.BaseResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -44,6 +45,22 @@ public class ApiExceptionHandler {
     public ResponseEntity<BaseResponse<Object>> badRequest(RuntimeException ex) {
 	return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 		.body(new BaseResponse<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), true, null));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<BaseResponse<Object>> dataIntegrity(DataIntegrityViolationException ex) {
+	String msg = "Data integrity violation";
+	Throwable root = ex.getMostSpecificCause();
+	if (root.getMessage() != null) {
+	    String m = root.getMessage();
+	    if (m.contains("uk_space_slug")) {
+		msg = "Slug already exists in this space";
+	    } else if (m.contains("uk_tag_name") || m.contains("uk_tag_name_ci")) {
+		msg = "Tag already exists";
+	    }
+	}
+	return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+		.body(new BaseResponse<>(HttpStatus.BAD_REQUEST.value(), msg, true, null));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

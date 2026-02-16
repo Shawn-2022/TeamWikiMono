@@ -23,6 +23,7 @@ import java.util.Map;
 @Service
 public class ReviewService {
 
+    public static final String REVIEW_REQUEST_ID = "reviewRequestId";
     private final ArticleRepository articles;
     private final ReviewRequestRepository reviews;
     private final ApplicationEventPublisher publisher;
@@ -67,7 +68,7 @@ public class ReviewService {
 		com.wiki.monowiki.audit.service.AuditActor.username(),
 		"Submitted review request for article",
 		false,
-		Map.of("reviewRequestId", rr.getId())
+		Map.of(REVIEW_REQUEST_ID, rr.getId())
 	));
 
 	return toResponse(rr);
@@ -117,7 +118,7 @@ public class ReviewService {
 		com.wiki.monowiki.audit.service.AuditActor.username(),
 		"Approved review request (article published)",
 		true, // publish moment => public
-		Map.of("reviewRequestId", rr.getId())
+		Map.of(REVIEW_REQUEST_ID, rr.getId())
 	));
 
 	return toResponse(rr);
@@ -149,7 +150,7 @@ public class ReviewService {
 		com.wiki.monowiki.audit.service.AuditActor.username(),
 		"Rejected review request (article back to draft)",
 		false,
-		Map.of("reviewRequestId", rr.getId(), "reason", rr.getReason())
+		Map.of(REVIEW_REQUEST_ID, rr.getId(), "reason", rr.getReason())
 	));
 
 	return toResponse(rr);

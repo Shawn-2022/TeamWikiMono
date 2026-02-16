@@ -74,7 +74,10 @@ class SpaceServiceTest {
     void create_when_duplicate_spaceKey_throws() {
 	when(repo.existsBySpaceKey("ENG")).thenReturn(true);
 
-	assertThatThrownBy(() -> service.create(new CreateSpaceRequest("ENG", "Engineering")))
+	CreateSpaceRequest request =
+		new CreateSpaceRequest("ENG", "Engineering");
+
+	assertThatThrownBy(() -> service.create(request))
 		.isInstanceOf(IllegalArgumentException.class)
 		.hasMessageContaining("Space key already exists");
     }

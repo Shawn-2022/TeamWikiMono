@@ -38,7 +38,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 	    String token = auth.substring(7);
 	    try {
 		Jws<Claims> jws = jwtService.parse(token);
-		String username = jws.getBody().getSubject();
+		String username = jws.getPayload().getSubject();
 
 		var userDetails = userDetailsService.loadUserByUsername(username);
 		var authentication = new UsernamePasswordAuthenticationToken(

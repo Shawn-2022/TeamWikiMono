@@ -1,5 +1,6 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.*;
 import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleTag;
@@ -9,13 +10,10 @@ import com.wiki.monowiki.wiki.repo.ArticleTagRepository;
 import com.wiki.monowiki.wiki.repo.ArticleVersionRepository;
 import com.wiki.monowiki.wiki.repo.VersionCommentRepository;
 import org.springframework.data.domain.*;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class SearchService {
@@ -37,7 +35,7 @@ public class SearchService {
 
     @Transactional(readOnly = true)
     public Page<ArticleResponse> search(String spaceKey, String q, Pageable pageable) {
-	Page<Article> page = isViewer()
+	Page<Article> page = SecurityUtils.isViewer()
 		? articles.searchLatestPublishedInSpace(spaceKey, q, pageable)
 		: articles.searchLatestInSpace(spaceKey, q, pageable);
 
@@ -77,11 +75,5 @@ public class SearchService {
 		a.getCreatedAt(),
 		a.getUpdatedAt()
 	);
-    }
-
-    private boolean isViewer() {
-	Authentication a = SecurityContextHolder.getContext().getAuthentication();
-	if (a == null) return false;
-	return a.getAuthorities().stream().anyMatch(g -> Objects.equals(g.getAuthority(), "ROLE_VIEWER"));
     }
 }
