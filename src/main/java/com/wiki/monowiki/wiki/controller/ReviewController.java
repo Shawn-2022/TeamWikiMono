@@ -16,17 +16,17 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Review workflow", description = "Submit drafts for review and approve/reject to publish.")
 public class ReviewController {
 
-    private final ReviewService service;
+    private final ReviewService reviewService;
 
-    public ReviewController(ReviewService service) {
-	this.service = service;
+    public ReviewController(ReviewService reviewService) {
+	this.reviewService = reviewService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @PostMapping("/articles/{id}/review-requests")
     @Operation(summary = "Submit article for review (ADMIN/EDITOR)")
     public BaseResponse<ReviewRequestResponse> submit(@PathVariable Long id) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Review request submitted", false, service.submit(id));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Review request submitted", false, reviewService.submit(id));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -35,20 +35,20 @@ public class ReviewController {
     public BasePageResponse<ReviewRequestResponse> list(@RequestParam(defaultValue = "0") int page,
 	    @RequestParam(defaultValue = "10") int size,
 	    @RequestParam(required = false) String status) {
-	return BasePageResponse.fromPage(service.list(page, size, status), "Review requests fetched");
+	return BasePageResponse.fromPage(reviewService.list(page, size, status), "Review requests fetched");
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @PostMapping("/review-requests/{id}/approve")
     @Operation(summary = "Approve review request (ADMIN/EDITOR)")
     public BaseResponse<ReviewRequestResponse> approve(@PathVariable Long id) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Review approved", false, service.approve(id));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Review approved", false, reviewService.approve(id));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @PostMapping("/review-requests/{id}/reject")
     @Operation(summary = "Reject review request (ADMIN/EDITOR)")
     public BaseResponse<ReviewRequestResponse> reject(@PathVariable Long id, @Valid @RequestBody RejectRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Review rejected", false, service.reject(id, req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Review rejected", false, reviewService.reject(id, req));
     }
 }

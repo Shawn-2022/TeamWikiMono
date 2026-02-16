@@ -1,4 +1,4 @@
-package com.wiki.monowiki.wiki.repo;
+package com.wiki.monowiki.wiki.repository;
 
 import com.wiki.monowiki.wiki.model.ReviewRequest;
 import com.wiki.monowiki.wiki.model.ReviewStatus;

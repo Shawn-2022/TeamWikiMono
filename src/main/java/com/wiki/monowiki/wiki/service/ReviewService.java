@@ -1,5 +1,8 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.audit.model.AuditEntityType;
+import com.wiki.monowiki.audit.model.AuditEventType;
+import com.wiki.monowiki.audit.service.AuditActor;
 import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.ReviewDtos.RejectRequest;
 import com.wiki.monowiki.wiki.dto.ReviewDtos.ReviewRequestResponse;
@@ -7,8 +10,8 @@ import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleStatus;
 import com.wiki.monowiki.wiki.model.ReviewRequest;
 import com.wiki.monowiki.wiki.model.ReviewStatus;
-import com.wiki.monowiki.wiki.repo.ArticleRepository;
-import com.wiki.monowiki.wiki.repo.ReviewRequestRepository;
+import com.wiki.monowiki.wiki.repository.ArticleRepository;
+import com.wiki.monowiki.wiki.repository.ReviewRequestRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -20,37 +23,38 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
 public class ReviewService {
 
     public static final String REVIEW_REQUEST_ID = "reviewRequestId";
-    private final ArticleRepository articles;
-    private final ReviewRequestRepository reviews;
-    private final ApplicationEventPublisher publisher;
+    private final ArticleRepository articleRepository;
+    private final ReviewRequestRepository reviewRequestRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
-    public ReviewService(ArticleRepository articles, ReviewRequestRepository reviews, ApplicationEventPublisher publisher) {
-	this.articles = articles;
-	this.reviews = reviews;
-	this.publisher = publisher;
+    public ReviewService(ArticleRepository articleRepository, ReviewRequestRepository reviewRequestRepository, ApplicationEventPublisher applicationEventPublisher) {
+	this.articleRepository = articleRepository;
+	this.reviewRequestRepository = reviewRequestRepository;
+	this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
     public ReviewRequestResponse submit(Long articleId) {
         log.info("Submitting review request for articleId={} by user={}", articleId, SecurityUtils.username());
-	Article a = articles.findById(articleId)
+	Article a = articleRepository.findById(articleId)
 		.orElseThrow(() -> {
                 log.warn("Article not found for id={} during review submit", articleId);
                 return new NotFoundException("Article not found");
             });
 
-	if (a.getStatus() != ArticleStatus.DRAFT) {
+	if (!Objects.equals(a.getStatus(), ArticleStatus.DRAFT)) {
             log.warn("Review submit blocked: articleId={} status={}", articleId, a.getStatus());
 	    throw new IllegalArgumentException("Only DRAFT articles can be submitted for review");
 	}
 
-	if (reviews.existsByArticleIdAndStatus(articleId, ReviewStatus.PENDING)) {
+	if (reviewRequestRepository.existsByArticleIdAndStatus(articleId, ReviewStatus.PENDING)) {
             log.warn("Duplicate review submit attempt: articleId={}", articleId);
 	    throw new IllegalArgumentException("A pending review request already exists for this article");
 	}
@@ -63,23 +67,20 @@ public class ReviewService {
 		.requestedBy(actor)
 		.build();
 
-	rr = reviews.save(rr);
+	rr = reviewRequestRepository.save(rr);
 
 	a.setStatus(ArticleStatus.IN_REVIEW);
 
 	log.info("Review request {} submitted for articleId={} by user={}", rr.getId(), articleId, actor);
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.REVIEW_SUBMITTED,
-		com.wiki.monowiki.audit.model.AuditEntityType.REVIEW_REQUEST,
-		rr.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
-		"Submitted review request for article",
-		false,
-		Map.of(REVIEW_REQUEST_ID, rr.getId())
-	));
+	publishReviewEvent(
+            AuditEventType.REVIEW_SUBMITTED,
+            rr,
+            a,
+            "Submitted review request for article",
+            false,
+            Map.of(REVIEW_REQUEST_ID, rr.getId())
+        );
 
 	return toResponse(rr);
     }
@@ -95,12 +96,12 @@ public class ReviewService {
 
 	Page<ReviewRequest> result;
 	if (status != null && !status.isBlank()) {
-	    ReviewStatus rs = ReviewStatus.valueOf(status.trim().toUpperCase());
+            ReviewStatus rs = ReviewStatus.valueOf(status.trim().toUpperCase());
             log.debug("Filtering review requests by status={}", rs);
-	    result = reviews.findByStatus(rs, pageable);
+	    result = reviewRequestRepository.findByStatus(rs, pageable);
 	} else {
             log.debug("Listing all review requests");
-	    result = reviews.findAll(pageable);
+	    result = reviewRequestRepository.findAll(pageable);
 	}
 
 	return result.map(this::toResponse);
@@ -109,13 +110,13 @@ public class ReviewService {
     @Transactional
     public ReviewRequestResponse approve(Long reviewRequestId) {
         log.info("Approving review request {} by user={}", reviewRequestId, SecurityUtils.username());
-	ReviewRequest rr = reviews.findById(reviewRequestId)
+	ReviewRequest rr = reviewRequestRepository.findById(reviewRequestId)
 		.orElseThrow(() -> {
                 log.warn("Review request not found for id={} during approve", reviewRequestId);
                 return new NotFoundException("Review request not found");
             });
 
-	if (rr.getStatus() != ReviewStatus.PENDING) {
+	if (!Objects.equals(rr.getStatus(), ReviewStatus.PENDING)) {
             log.warn("Approve blocked: reviewRequestId={} status={}", reviewRequestId, rr.getStatus());
 	    throw new IllegalArgumentException("Only PENDING review requests can be approved");
 	}
@@ -129,17 +130,14 @@ public class ReviewService {
 
 	log.info("Review request {} approved and article {} published by user={}", reviewRequestId, a.getId(), SecurityUtils.username());
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.REVIEW_APPROVED,
-		com.wiki.monowiki.audit.model.AuditEntityType.REVIEW_REQUEST,
-		rr.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
-		"Approved review request (article published)",
-		true, // publish moment => public
-		Map.of(REVIEW_REQUEST_ID, rr.getId())
-	));
+	publishReviewEvent(
+            AuditEventType.REVIEW_APPROVED,
+            rr,
+            a,
+            "Approved review request (article published)",
+            true,
+            Map.of(REVIEW_REQUEST_ID, rr.getId())
+        );
 
 	return toResponse(rr);
     }
@@ -147,13 +145,13 @@ public class ReviewService {
     @Transactional
     public ReviewRequestResponse reject(Long reviewRequestId, RejectRequest req) {
         log.info("Rejecting review request {} by user={}", reviewRequestId, SecurityUtils.username());
-	ReviewRequest rr = reviews.findById(reviewRequestId)
+	ReviewRequest rr = reviewRequestRepository.findById(reviewRequestId)
 		.orElseThrow(() -> {
                 log.warn("Review request not found for id={} during reject", reviewRequestId);
                 return new NotFoundException("Review request not found");
             });
 
-	if (rr.getStatus() != ReviewStatus.PENDING) {
+	if (!Objects.equals(rr.getStatus(), ReviewStatus.PENDING)) {
             log.warn("Reject blocked: reviewRequestId={} status={}", reviewRequestId, rr.getStatus());
 	    throw new IllegalArgumentException("Only PENDING review requests can be rejected");
 	}
@@ -168,19 +166,37 @@ public class ReviewService {
 
 	log.info("Review request {} rejected and article {} set to draft by user={}", reviewRequestId, a.getId(), SecurityUtils.username());
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.REVIEW_REJECTED,
-		com.wiki.monowiki.audit.model.AuditEntityType.REVIEW_REQUEST,
-		rr.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
-		"Rejected review request (article back to draft)",
-		false,
-		Map.of(REVIEW_REQUEST_ID, rr.getId(), "reason", rr.getReason())
-	));
+	publishReviewEvent(
+            AuditEventType.REVIEW_REJECTED,
+            rr,
+            a,
+            "Rejected review request (article back to draft)",
+            false,
+            Map.of(REVIEW_REQUEST_ID, rr.getId(), "reason", rr.getReason())
+        );
 
 	return toResponse(rr);
+    }
+
+    private void publishReviewEvent(
+            AuditEventType eventType,
+            ReviewRequest reviewRequest,
+            Article article,
+            String message,
+            boolean isPublic,
+            Map<String, Object> details
+    ) {
+        applicationEventPublisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
+                eventType,
+                AuditEntityType.REVIEW_REQUEST,
+                reviewRequest.getId(),
+                article.getSpace().getSpaceKey(),
+                article.getId(),
+                AuditActor.username(),
+                message,
+                isPublic,
+                details
+        ));
     }
 
     private ReviewRequestResponse toResponse(ReviewRequest rr) {

@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Comments", description = "Comments are attached to a specific article version.")
 public class CommentController {
 
-    private final CommentService service;
+    private final CommentService commentService;
 
-    public CommentController(CommentService service) {
-	this.service = service;
+    public CommentController(CommentService commentService) {
+	this.commentService = commentService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -31,7 +31,7 @@ public class CommentController {
     public BaseResponse<CommentResponse> create(@PathVariable Long id,
 	    @PathVariable Integer no,
 	    @Valid @RequestBody CreateCommentRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Comment added", false, service.create(id, no, req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Comment added", false, commentService.create(id, no, req));
     }
 
     @GetMapping("/articles/{id}/versions/{no}/comments")
@@ -44,7 +44,7 @@ public class CommentController {
 	    @RequestParam(defaultValue = "createdAt,asc") String sort
     ) {
 	Pageable pageable = PageRequest.of(page, size, parseSort(sort));
-	return BasePageResponse.fromPage(service.list(id, no, pageable), "Comments fetched");
+	return BasePageResponse.fromPage(commentService.list(id, no, pageable), "Comments fetched");
     }
 
     private Sort parseSort(String sort) {

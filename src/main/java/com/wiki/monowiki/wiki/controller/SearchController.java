@@ -17,10 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Search", description = "Search across article title and latest version content.")
 public class SearchController {
 
-    private final SearchService service;
+    private final SearchService searchService;
 
-    public SearchController(SearchService service) {
-	this.service = service;
+    public SearchController(SearchService searchService) {
+	this.searchService = searchService;
     }
 
     @GetMapping("/search")
@@ -36,6 +36,6 @@ public class SearchController {
 	    @RequestParam(defaultValue = "0") int page,
 	    @RequestParam(defaultValue = "10") int size) {
 	Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
-	return BasePageResponse.fromPage(service.search(spaceKey, q, includeArchived, pageable), "Search results fetched");
+	return BasePageResponse.fromPage(searchService.search(spaceKey, q, includeArchived, pageable), "Search results fetched");
     }
 }

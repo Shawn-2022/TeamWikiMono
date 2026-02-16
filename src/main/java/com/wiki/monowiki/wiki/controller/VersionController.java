@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Versions", description = "Article versions. New versions can only be added while the article is DRAFT.")
 public class VersionController {
 
-    private final VersionService service;
+    private final VersionService versionService;
 
-    public VersionController(VersionService service) {
-	this.service = service;
+    public VersionController(VersionService versionService) {
+	this.versionService = versionService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -30,7 +30,7 @@ public class VersionController {
     @Operation(summary = "Add a new version (ADMIN/EDITOR)")
     public BaseResponse<VersionResponse> create(@PathVariable Long id,
 	    @Valid @RequestBody CreateVersionRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Version added", false, service.create(id, req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Version added", false, versionService.create(id, req));
     }
 
     @GetMapping("/articles/{id}/versions")
@@ -42,13 +42,13 @@ public class VersionController {
 	    @RequestParam(defaultValue = "versionNo,asc") String sort
     ) {
 	Pageable pageable = PageRequest.of(page, size, parseSort(sort));
-	return BasePageResponse.fromPage(service.list(id, pageable), "Versions fetched");
+	return BasePageResponse.fromPage(versionService.list(id, pageable), "Versions fetched");
     }
 
     @GetMapping("/articles/{id}/versions/{no}")
     @Operation(summary = "Get a version (VIEWER only if article is PUBLISHED)")
     public BaseResponse<VersionResponse> get(@PathVariable Long id, @PathVariable Integer no) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Version fetched", false, service.get(id, no));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Version fetched", false, versionService.get(id, no));
     }
 
     private Sort parseSort(String sort) {

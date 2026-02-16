@@ -14,6 +14,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Objects;
+
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -53,11 +55,11 @@ public class ApiExceptionHandler {
     public ResponseEntity<BaseResponse<Object>> dataIntegrity(DataIntegrityViolationException ex) {
 	String msg = "Data integrity violation";
 	Throwable root = ex.getMostSpecificCause();
-	if (root.getMessage() != null) {
-	    String m = root.getMessage();
-	    if (m.contains("uk_space_slug")) {
+	String m = root.getMessage();
+	if (Objects.nonNull(m)) {
+	    if (Objects.equals(true, m.contains("uk_space_slug"))) {
 		msg = "Slug already exists in this space";
-	    } else if (m.contains("uk_tag_name") || m.contains("uk_tag_name_ci")) {
+	    } else if (Objects.equals(true, m.contains("uk_tag_name")) || Objects.equals(true, m.contains("uk_tag_name_ci"))) {
 		msg = "Tag already exists";
 	    }
 	}

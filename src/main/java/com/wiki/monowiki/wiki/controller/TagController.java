@@ -20,17 +20,17 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Tags", description = "Tag catalog and article-tag assignments.")
 public class TagController {
 
-    private final TagService service;
+    private final TagService tagService;
 
-    public TagController(TagService service) {
-	this.service = service;
+    public TagController(TagService tagService) {
+	this.tagService = tagService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
     @PostMapping("/tags")
     @Operation(summary = "Create tag (ADMIN/EDITOR)")
     public BaseResponse<TagResponse> create(@Valid @RequestBody CreateTagRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Tag created", false, service.create(req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Tag created", false, tagService.create(req));
     }
 
     @GetMapping("/tags")
@@ -41,7 +41,7 @@ public class TagController {
 	    @RequestParam(defaultValue = "name,asc") String sort
     ) {
 	Pageable pageable = PageRequest.of(page, size, parseSort(sort));
-	return BasePageResponse.fromPage(service.list(pageable), "Tags fetched");
+	return BasePageResponse.fromPage(tagService.list(pageable), "Tags fetched");
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -49,7 +49,7 @@ public class TagController {
     @Operation(summary = "Attach tag to article (ADMIN/EDITOR)")
     public BaseResponse<Object> addToArticle(@PathVariable Long id,
 	    @Valid @RequestBody AddTagToArticleRequest req) {
-	service.addTagToArticle(id, req.tagId());
+	tagService.addTagToArticle(id, req.tagId());
 	return new BaseResponse<>(HttpStatus.OK.value(), "Tag added to article", false, null);
     }
 
@@ -57,7 +57,7 @@ public class TagController {
     @DeleteMapping("/articles/{id}/tags/{tagId}")
     @Operation(summary = "Remove tag from article (ADMIN/EDITOR)")
     public BaseResponse<Object> removeFromArticle(@PathVariable Long id, @PathVariable Long tagId) {
-	service.removeTagFromArticle(id, tagId);
+	tagService.removeTagFromArticle(id, tagId);
 	return new BaseResponse<>(HttpStatus.OK.value(), "Tag removed from article", false, null);
     }
 

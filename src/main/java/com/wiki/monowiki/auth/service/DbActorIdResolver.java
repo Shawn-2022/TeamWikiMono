@@ -3,6 +3,7 @@ package com.wiki.monowiki.auth.service;
 import com.wiki.monowiki.audit.service.ActorIdResolver;
 import com.wiki.monowiki.auth.model.Users;
 import com.wiki.monowiki.auth.repo.UserRepository;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,11 +23,11 @@ public class DbActorIdResolver implements ActorIdResolver {
 
     @Override
     public Long resolve(String username) {
-	if (username == null || username.isBlank() || "system".equalsIgnoreCase(username.trim())) {
-	    return null;
-	}
-	return users.findByUsername(username.trim())
-		.map(Users::getId)
-		.orElse(null);
+        if (Objects.isNull(username) || username.isBlank() || "system".equalsIgnoreCase(username.trim())) {
+            return null;
+        }
+        return users.findByUsername(username.trim())
+                .map(Users::getId)
+                .orElse(null);
     }
 }

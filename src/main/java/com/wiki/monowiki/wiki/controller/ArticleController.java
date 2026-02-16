@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Articles", description = "Articles live inside a space and have statuses DRAFT / IN_REVIEW / PUBLISHED / ARCHIVED.")
 public class ArticleController {
 
-    private final ArticleService service;
+    private final ArticleService articleService;
 
-    public ArticleController(ArticleService service) {
-	this.service = service;
+    public ArticleController(ArticleService articleService) {
+	this.articleService = articleService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -32,7 +32,7 @@ public class ArticleController {
     @Operation(summary = "Create article (ADMIN/EDITOR)", description = "Creates a DRAFT article and automatically creates version #1.")
     public BaseResponse<ArticleResponse> create(@PathVariable String spaceKey,
 	    @Valid @RequestBody CreateArticleRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Article created", false, service.create(spaceKey, req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Article created", false, articleService.create(spaceKey, req));
     }
 
     @GetMapping("/spaces/{spaceKey}/articles")
@@ -48,13 +48,13 @@ public class ArticleController {
 	    @RequestParam(defaultValue = "10") int size,
 	    @RequestParam(defaultValue = "createdAt,desc") String sort) {
 	Pageable pageable = PageRequest.of(page, size, parseSort(sort));
-	return BasePageResponse.fromPage(service.list(spaceKey, includeArchived, pageable), "Articles fetched");
+	return BasePageResponse.fromPage(articleService.list(spaceKey, includeArchived, pageable), "Articles fetched");
     }
 
     @GetMapping("/spaces/{spaceKey}/articles/{slug}")
     @Operation(summary = "Get article by slug", description = "VIEWERs get 404 for non-PUBLISHED articles.")
     public BaseResponse<ArticleResponse> get(@PathVariable String spaceKey, @PathVariable String slug) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Article fetched", false, service.getBySlug(spaceKey, slug));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Article fetched", false, articleService.getBySlug(spaceKey, slug));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','EDITOR')")
@@ -62,7 +62,7 @@ public class ArticleController {
     @Operation(summary = "Update draft article title (ADMIN/EDITOR)", description = "Only allowed for DRAFT articles.")
     public BaseResponse<ArticleResponse> updateTitle(@PathVariable Long id,
 	    @Valid @RequestBody UpdateTitleRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Article title updated", false, service.updateTitle(id, req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Article title updated", false, articleService.updateTitle(id, req));
     }
 
     /**
@@ -72,7 +72,7 @@ public class ArticleController {
     @PostMapping("/articles/{id}/archive")
     @Operation(summary = "Archive article (ADMIN/EDITOR)", description = "Soft delete. Not allowed while IN_REVIEW.")
     public BaseResponse<ArticleResponse> archive(@PathVariable Long id) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Article archived", false, service.archive(id));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Article archived", false, articleService.archive(id));
     }
 
     /**
@@ -82,7 +82,7 @@ public class ArticleController {
     @PostMapping("/articles/{id}/unarchive")
     @Operation(summary = "Unarchive article (ADMIN/EDITOR)", description = "Restores an archived article back to DRAFT.")
     public BaseResponse<ArticleResponse> unarchive(@PathVariable Long id) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Article restored to draft", false, service.unarchive(id));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Article restored to draft", false, articleService.unarchive(id));
     }
 
     private Sort parseSort(String sort) {

@@ -1,4 +1,4 @@
-package com.wiki.monowiki.wiki.repo;
+package com.wiki.monowiki.wiki.repository;
 
 import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.VersionComment;

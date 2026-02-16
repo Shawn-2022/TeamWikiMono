@@ -20,17 +20,17 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Spaces", description = "Spaces (like namespaces) for grouping articles.")
 public class SpaceController {
 
-    private final SpaceService service;
+    private final SpaceService spaceService;
 
-    public SpaceController(SpaceService service) {
-	this.service = service;
+    public SpaceController(SpaceService spaceService) {
+	this.spaceService = spaceService;
     }
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     @Operation(summary = "Create space (ADMIN)")
     public BaseResponse<SpaceResponse> create(@Valid @RequestBody CreateSpaceRequest req) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Space created", false, service.create(req));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Space created", false, spaceService.create(req));
     }
 
     @GetMapping
@@ -41,13 +41,13 @@ public class SpaceController {
 	    @RequestParam(defaultValue = "spaceKey,asc") String sort
     ) {
 	Pageable pageable = PageRequest.of(page, size, parseSort(sort));
-	return BasePageResponse.fromPage(service.list(pageable), "Spaces fetched");
+	return BasePageResponse.fromPage(spaceService.list(pageable), "Spaces fetched");
     }
 
     @GetMapping("/{spaceKey}")
     @Operation(summary = "Get space by key (all roles)")
     public BaseResponse<SpaceResponse> get(@PathVariable String spaceKey) {
-	return new BaseResponse<>(HttpStatus.OK.value(), "Space fetched", false, service.getByKey(spaceKey));
+	return new BaseResponse<>(HttpStatus.OK.value(), "Space fetched", false, spaceService.getByKey(spaceKey));
     }
 
     private Sort parseSort(String sort) {

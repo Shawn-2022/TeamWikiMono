@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.Map;
+import java.util.Objects;
 
 import static org.springframework.transaction.event.TransactionPhase.AFTER_COMMIT;
 
@@ -52,7 +53,7 @@ public class AuditEventListener {
     }
 
     private String toJsonQuietly(Map<String, Object> meta) {
-	if (meta == null || meta.isEmpty()) return null;
+	if (Objects.isNull(meta) || meta.isEmpty()) return null;
 	try {
 	    return objectMapper.writeValueAsString(meta);
 	} catch (Exception ex) {

@@ -8,7 +8,7 @@ import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleStatus;
 import com.wiki.monowiki.wiki.model.ArticleVersion;
 import com.wiki.monowiki.wiki.model.Space;
-import com.wiki.monowiki.wiki.repo.*;
+import com.wiki.monowiki.wiki.repository.*;
 import com.wiki.monowiki.wiki.service.ArticleService;
 import com.wiki.monowiki.wiki.service.SlugUtil;
 import org.junit.jupiter.api.AfterEach;

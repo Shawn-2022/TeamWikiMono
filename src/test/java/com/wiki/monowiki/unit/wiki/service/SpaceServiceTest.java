@@ -6,7 +6,7 @@ import com.wiki.monowiki.audit.service.WikiAuditEvent;
 import com.wiki.monowiki.unit.util.TestAuth;
 import com.wiki.monowiki.wiki.dto.SpaceDtos.CreateSpaceRequest;
 import com.wiki.monowiki.wiki.model.Space;
-import com.wiki.monowiki.wiki.repo.SpaceRepository;
+import com.wiki.monowiki.wiki.repository.SpaceRepository;
 import com.wiki.monowiki.wiki.service.SpaceService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

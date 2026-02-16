@@ -1,12 +1,15 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.audit.model.AuditEventType;
+import com.wiki.monowiki.audit.service.AuditActor;
+import com.wiki.monowiki.audit.service.WikiAuditEvent;
 import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.ArticleResponse;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.CreateArticleRequest;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.TagSummary;
 import com.wiki.monowiki.wiki.dto.ArticleDtos.UpdateTitleRequest;
 import com.wiki.monowiki.wiki.model.*;
-import com.wiki.monowiki.wiki.repo.*;
+import com.wiki.monowiki.wiki.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -16,6 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
+import static com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE;
+import static com.wiki.monowiki.audit.model.AuditEventType.*;
 
 @Slf4j
 @Service
@@ -23,30 +30,30 @@ public class ArticleService {
 
     public static final String SPACE_NOT_FOUND = "Space not found";
     public static final String ARTICLE_NOT_FOUND = "Article not found";
-    private final ArticleRepository articles;
-    private final SpaceRepository spaces;
-    private final ArticleVersionRepository versions;
-    private final ArticleTagRepository articleTags;
-    private final VersionCommentRepository comments;
-    private final ApplicationEventPublisher publisher;
+    private final ArticleRepository articleRepository;
+    private final SpaceRepository spaceRepository;
+    private final ArticleVersionRepository articleVersionRepository;
+    private final ArticleTagRepository articleTagRepository;
+    private final VersionCommentRepository versionCommentRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
-    public ArticleService(ArticleRepository articles,
-	    SpaceRepository spaces,
-	    ArticleVersionRepository versions,
-	    ArticleTagRepository articleTags,
-	    VersionCommentRepository comments,
-	    ApplicationEventPublisher publisher) {
-	this.articles = articles;
-	this.spaces = spaces;
-	this.versions = versions;
-	this.articleTags = articleTags;
-	this.comments = comments;
-	this.publisher = publisher;
+    public ArticleService(ArticleRepository articleRepository,
+	    SpaceRepository spaceRepository,
+	    ArticleVersionRepository articleVersionRepository,
+	    ArticleTagRepository articleTagRepository,
+	    VersionCommentRepository versionCommentRepository,
+	    ApplicationEventPublisher applicationEventPublisher) {
+	this.articleRepository = articleRepository;
+	this.spaceRepository = spaceRepository;
+	this.articleVersionRepository = articleVersionRepository;
+	this.articleTagRepository = articleTagRepository;
+	this.versionCommentRepository = versionCommentRepository;
+	this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
     public ArticleResponse create(String spaceKey, CreateArticleRequest req) {
-	Space space = spaces.findBySpaceKey(spaceKey)
+	Space space = spaceRepository.findBySpaceKey(spaceKey)
 		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
 	String baseSlug = SlugUtil.slugify(req.title());
@@ -62,7 +69,7 @@ public class ArticleService {
 		.createdBy(actor)
 		.build();
 
-	a = articles.save(a);
+	a = articleRepository.save(a);
 
 	ArticleVersion v1 = ArticleVersion.builder()
 		.article(a)
@@ -71,39 +78,35 @@ public class ArticleService {
 		.createdBy(actor)
 		.build();
 
-	versions.save(v1);
+	articleVersionRepository.save(v1);
 	a.setCurrentVersionNo(1);
 
 	log.info("ARTICLE_CREATED: articleId={} spaceKey={} slug={} actor={} status={}",
 		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), actor, a.getStatus());
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_CREATED,
-		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
-		a.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
+	publishArticleEvent(
+		ARTICLE_CREATED,
+		a,
 		"Created article: " + a.getTitle(),
-		false, // draft => not public
+		false,
 		Map.of("slug", a.getSlug(), "versionNo", 1)
-	));
+	);
 
 	return toResponse(a, v1.getContent());
     }
 
     @Transactional(readOnly = true)
     public Page<ArticleResponse> list(String spaceKey, boolean includeArchived, Pageable pageable) {
-	Space space = spaces.findBySpaceKey(spaceKey)
+	Space space = spaceRepository.findBySpaceKey(spaceKey)
 		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
 	Page<Article> page;
 	if (SecurityUtils.isViewer()) {
-	    page = articles.findBySpaceAndStatus(space, ArticleStatus.PUBLISHED, pageable);
+	    page = articleRepository.findBySpaceAndStatus(space, ArticleStatus.PUBLISHED, pageable);
 	} else if (includeArchived) {
-	    page = articles.findBySpace(space, pageable);
+	    page = articleRepository.findBySpace(space, pageable);
 	} else {
-	    page = articles.findBySpaceAndStatusNot(space, ArticleStatus.ARCHIVED, pageable);
+	    page = articleRepository.findBySpaceAndStatusNot(space, ArticleStatus.ARCHIVED, pageable);
 	}
 
 	return page.map(a -> toResponse(a, latestContent(a)));
@@ -111,10 +114,10 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public ArticleResponse getBySlug(String spaceKey, String slug) {
-	Space space = spaces.findBySpaceKey(spaceKey)
+	Space space = spaceRepository.findBySpaceKey(spaceKey)
 		.orElseThrow(() -> new NotFoundException(SPACE_NOT_FOUND));
 
-	Article a = articles.findBySpaceAndSlug(space, slug)
+	Article a = articleRepository.findBySpaceAndSlug(space, slug)
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (SecurityUtils.isViewer() && a.getStatus() != ArticleStatus.PUBLISHED) {
@@ -126,7 +129,7 @@ public class ArticleService {
 
     @Transactional
     public ArticleResponse updateTitle(Long articleId, UpdateTitleRequest req) {
-	Article a = articles.findById(articleId)
+	Article a = articleRepository.findById(articleId)
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	// Business rule: only drafts are updatable (published/in-review must go through draft -> review flow)
@@ -144,17 +147,13 @@ public class ArticleService {
 	log.info("ARTICLE_TITLE_UPDATED: articleId={} actor={} oldTitle='{}' newTitle='{}'",
 		a.getId(), safeUsername(), safeShort(oldTitle), safeShort(a.getTitle()));
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_TITLE_UPDATED,
-		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
-		a.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
+	publishArticleEvent(
+		ARTICLE_TITLE_UPDATED,
+		a,
 		"Updated article title: " + a.getTitle(),
 		isPublic,
 		Map.of("slug", a.getSlug(), "oldTitle", oldTitle, "newTitle", a.getTitle())
-	));
+	);
 
 	return toResponse(a, latestContent(a));
     }
@@ -164,7 +163,7 @@ public class ArticleService {
      */
     @Transactional
     public ArticleResponse archive(Long articleId) {
-	Article a = articles.findById(articleId)
+	Article a = articleRepository.findById(articleId)
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (a.getStatus() == ArticleStatus.ARCHIVED) {
@@ -184,17 +183,13 @@ public class ArticleService {
 	log.info("ARTICLE_ARCHIVED: articleId={} spaceKey={} slug={} actor={} fromStatus={} toStatus={}",
 		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), safeUsername(), from, a.getStatus());
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_ARCHIVED,
-		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
-		a.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
+	publishArticleEvent(
+		ARTICLE_ARCHIVED,
+		a,
 		"Archived article: " + a.getTitle(),
 		false,
 		Map.of("slug", a.getSlug(), "fromStatus", String.valueOf(from))
-	));
+	);
 
 	return toResponse(a, latestContent(a));
     }
@@ -204,7 +199,7 @@ public class ArticleService {
      */
     @Transactional
     public ArticleResponse unarchive(Long articleId) {
-	Article a = articles.findById(articleId)
+	Article a = articleRepository.findById(articleId)
 		.orElseThrow(() -> new NotFoundException(ARTICLE_NOT_FOUND));
 
 	if (a.getStatus() != ArticleStatus.ARCHIVED) {
@@ -218,17 +213,13 @@ public class ArticleService {
 	log.info("ARTICLE_UNARCHIVED: articleId={} spaceKey={} slug={} actor={} toStatus={}",
 		a.getId(), a.getSpace().getSpaceKey(), a.getSlug(), safeUsername(), a.getStatus());
 
-	publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-		com.wiki.monowiki.audit.model.AuditEventType.ARTICLE_UNARCHIVED,
-		com.wiki.monowiki.audit.model.AuditEntityType.ARTICLE,
-		a.getId(),
-		a.getSpace().getSpaceKey(),
-		a.getId(),
-		com.wiki.monowiki.audit.service.AuditActor.username(),
+	publishArticleEvent(
+		ARTICLE_UNARCHIVED,
+		a,
 		"Restored article to draft: " + a.getTitle(),
 		false,
 		Map.of("slug", a.getSlug())
-	));
+	);
 
 	return toResponse(a, latestContent(a));
     }
@@ -236,31 +227,30 @@ public class ArticleService {
     // ---------- helpers ----------
 
     private String latestContent(Article a) {
-	Integer cv = a.getCurrentVersionNo();
-	if (cv == null || cv <= 0) return null;
-
-	return versions.findByArticleAndVersionNo(a, cv)
-		.map(ArticleVersion::getContent)
-		.orElse(null);
+        Integer cv = a.getCurrentVersionNo();
+        if (Objects.isNull(cv) || cv <= 0) return null;
+        return articleVersionRepository.findByArticleAndVersionNo(a, cv)
+                .map(ArticleVersion::getContent)
+                .orElse(null);
     }
 
     private List<TagSummary> tagSummaries(Article a) {
-	return articleTags.findByArticle(a).stream()
+	return articleTagRepository.findByArticle(a).stream()
 		.map(ArticleTag::getTag)
 		.map(t -> new TagSummary(t.getId(), t.getName()))
 		.toList();
     }
 
     private long currentVersionCommentCount(Article a) {
-	Integer cv = a.getCurrentVersionNo();
-	if (cv == null || cv <= 0) return 0L;
-	return comments.countByArticleAndVersionNo(a, cv);
+        Integer cv = a.getCurrentVersionNo();
+        if (Objects.isNull(cv) || cv <= 0) return 0L;
+        return versionCommentRepository.countByArticleAndVersionNo(a, cv);
     }
 
     private String ensureUniqueSlug(Space space, String base) {
 	String slug = base;
 	int i = 2;
-	while (articles.existsBySpaceAndSlug(space, slug)) {
+	while (articleRepository.existsBySpaceAndSlug(space, slug)) {
 	    String suffix = "-" + i++;
 	    int maxLen = 140 - suffix.length();
 	    String trimmed = base.length() > maxLen ? base.substring(0, maxLen).replaceAll("-+$", "") : base;
@@ -270,14 +260,14 @@ public class ArticleService {
     }
 
     private String safeUsername() {
-	String u = SecurityUtils.username();
-	return (u == null || u.isBlank()) ? "system" : u;
+        String u = SecurityUtils.username();
+        return (Objects.isNull(u) || u.isBlank()) ? "system" : u;
     }
 
     private String safeShort(String s) {
-	if (s == null) return "";
-	String t = s.replaceAll("\\s+", " ").trim();
-	return t.length() <= 120 ? t : t.substring(0, 120) + "...";
+        if (Objects.isNull(s)) return "";
+        String t = s.replaceAll("\\s+", " ").trim();
+        return t.length() <= 120 ? t : t.substring(0, 120) + "...";
     }
 
     private ArticleResponse toResponse(Article a, String latestContent) {
@@ -295,6 +285,26 @@ public class ArticleService {
 		a.getCreatedAt(),
 		a.getUpdatedAt()
 	);
+    }
+
+    private void publishArticleEvent(
+            AuditEventType eventType,
+            Article article,
+            String message,
+            boolean isPublic,
+            Map<String, Object> details
+    ) {
+        applicationEventPublisher.publishEvent(new WikiAuditEvent(
+                eventType,
+                ARTICLE,
+                article.getId(),
+                article.getSpace().getSpaceKey(),
+                article.getId(),
+              	AuditActor.username(),
+                message,
+                isPublic,
+                details
+        ));
     }
 
     public static class NotFoundException extends RuntimeException {

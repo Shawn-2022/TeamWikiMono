@@ -18,14 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class AuditQueryService {
 
-    private final AuditEventLogRepository repo;
+    private final AuditEventLogRepository auditEventLogRepository;
 
-    public AuditQueryService(AuditEventLogRepository repo) {
-	this.repo = repo;
+    public AuditQueryService(AuditEventLogRepository auditEventLogRepository) {
+	this.auditEventLogRepository = auditEventLogRepository;
     }
 
     @Transactional(readOnly = true)
@@ -50,7 +51,7 @@ public class AuditQueryService {
 			publicOnly, from, to
 		));
 
-	return repo.findAll(spec, pageable).map(this::toDto);
+	return auditEventLogRepository.findAll(spec, pageable).map(this::toDto);
     }
     private Predicate[] buildPredicates(
 	    Root<AuditEventLog> root,
@@ -83,21 +84,21 @@ public class AuditQueryService {
 	return p.toArray(new Predicate[0]);
     }
     private <T> void addEquals(List<Predicate> p, CriteriaBuilder cb, Path<T> path, T value) {
-	if (value != null) {
-	    p.add(cb.equal(path, value));
-	}
+        if (Objects.nonNull(value)) {
+            p.add(cb.equal(path, value));
+        }
     }
 
     private void addFrom(List<Predicate> p, CriteriaBuilder cb, Path<Instant> path, Instant from) {
-	if (from != null) {
-	    p.add(cb.greaterThanOrEqualTo(path, from));
-	}
+        if (Objects.nonNull(from)) {
+            p.add(cb.greaterThanOrEqualTo(path, from));
+        }
     }
 
     private void addTo(List<Predicate> p, CriteriaBuilder cb, Path<Instant> path, Instant to) {
-	if (to != null) {
-	    p.add(cb.lessThanOrEqualTo(path, to));
-	}
+        if (Objects.nonNull(to)) {
+            p.add(cb.lessThanOrEqualTo(path, to));
+        }
     }
 
     private String trim(String value) {

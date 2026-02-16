@@ -1,5 +1,9 @@
 package com.wiki.monowiki.wiki.service;
 
+import com.wiki.monowiki.audit.model.AuditEntityType;
+import com.wiki.monowiki.audit.model.AuditEventType;
+import com.wiki.monowiki.audit.service.AuditActor;
+import com.wiki.monowiki.audit.service.WikiAuditEvent;
 import com.wiki.monowiki.common.security.SecurityUtils;
 import com.wiki.monowiki.wiki.dto.TagDtos.CreateTagRequest;
 import com.wiki.monowiki.wiki.dto.TagDtos.TagResponse;
@@ -7,9 +11,9 @@ import com.wiki.monowiki.wiki.model.Article;
 import com.wiki.monowiki.wiki.model.ArticleStatus;
 import com.wiki.monowiki.wiki.model.ArticleTag;
 import com.wiki.monowiki.wiki.model.Tag;
-import com.wiki.monowiki.wiki.repo.ArticleRepository;
-import com.wiki.monowiki.wiki.repo.ArticleTagRepository;
-import com.wiki.monowiki.wiki.repo.TagRepository;
+import com.wiki.monowiki.wiki.repository.ArticleRepository;
+import com.wiki.monowiki.wiki.repository.ArticleTagRepository;
+import com.wiki.monowiki.wiki.repository.TagRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -38,8 +43,12 @@ public class TagService {
 
     @Transactional
     public TagResponse create(CreateTagRequest req) {
-        String name = req.name().trim();
+        String name = req.name() != null ? req.name().trim() : "";
         log.info("Creating tag with name='{}' by user={}", name, currentUsername());
+        if (Objects.isNull(req.name()) || name.isBlank()) {
+            log.warn("Tag creation blocked: tag name is null or blank");
+            throw new IllegalArgumentException("Tag name cannot be null or blank");
+        }
         if (tags.existsByNameIgnoreCase(name)) {
             log.warn("Tag creation blocked: tag '{}' already exists", name);
             throw new IllegalArgumentException("Tag already exists");
@@ -80,19 +89,15 @@ public class TagService {
             log.debug("Tag '{}' already present on articleId={}", t.getName(), articleId);
         }
 
-        boolean isPublic = a.getStatus() == ArticleStatus.PUBLISHED;
-
-        publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-            com.wiki.monowiki.audit.model.AuditEventType.TAG_ADDED_TO_ARTICLE,
-            com.wiki.monowiki.audit.model.AuditEntityType.TAG,
-            t.getId(),
-            a.getSpace().getSpaceKey(),
-            a.getId(),
-            com.wiki.monowiki.audit.service.AuditActor.username(),
+        boolean isPublic = Objects.equals(a.getStatus(), ArticleStatus.PUBLISHED);
+        publishTagEvent(
+            AuditEventType.TAG_ADDED_TO_ARTICLE,
+            t,
+            a,
             "Added tag '" + t.getName() + "' to article",
             isPublic,
             Map.of("tagId", t.getId(), "tagName", t.getName())
-        ));
+        );
     }
 
     @Transactional
@@ -110,24 +115,41 @@ public class TagService {
         articleTags.deleteByArticleAndTag(a, t);
         log.info("Tag '{}' removed from articleId={}", t.getName(), articleId);
 
-        boolean isPublic = a.getStatus() == ArticleStatus.PUBLISHED;
-
-        publisher.publishEvent(new com.wiki.monowiki.audit.service.WikiAuditEvent(
-            com.wiki.monowiki.audit.model.AuditEventType.TAG_REMOVED_FROM_ARTICLE,
-            com.wiki.monowiki.audit.model.AuditEntityType.TAG,
-            t.getId(),
-            a.getSpace().getSpaceKey(),
-            a.getId(),
-            com.wiki.monowiki.audit.service.AuditActor.username(),
+        boolean isPublic = Objects.equals(a.getStatus(), ArticleStatus.PUBLISHED);
+        publishTagEvent(
+            AuditEventType.TAG_REMOVED_FROM_ARTICLE,
+            t,
+            a,
             "Removed tag '" + t.getName() + "' from article",
             isPublic,
             Map.of("tagId", t.getId(), "tagName", t.getName())
+        );
+    }
+
+    private void publishTagEvent(
+            AuditEventType eventType,
+            Tag tag,
+            Article article,
+            String message,
+            boolean isPublic,
+            Map<String, Object> details
+    ) {
+        publisher.publishEvent(new WikiAuditEvent(
+                eventType,
+                AuditEntityType.TAG,
+                tag.getId(),
+                article.getSpace().getSpaceKey(),
+                article.getId(),
+                AuditActor.username(),
+                message,
+                isPublic,
+                details
         ));
     }
 
     private String currentUsername() {
         String u = SecurityUtils.username();
-        return (u == null || u.isBlank()) ? "system" : u;
+        return (Objects.isNull(u) || u.isBlank()) ? "system" : u;
     }
 
     public static class NotFoundException extends RuntimeException {
