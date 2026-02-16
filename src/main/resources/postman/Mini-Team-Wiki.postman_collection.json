@@ -1,0 +1,939 @@
+{
+  "info": {
+    "_postman_id": "8abf8e6b-9f3b-4a4b-9a17-5bd66c1a7d2a",
+    "name": "Mini Team Wiki - Swagger Checklist Automation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Automates the main Swagger verification checklist (auth, spaces, articles, versions, review, tags, comments, search, audit, activity, archive/unarchive)."
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level setup: create a stable runId + sensible defaults (only once)",
+          "if (!pm.environment.get(\"runId\")) {",
+          "  pm.environment.set(\"runId\", Date.now().toString());",
+          "}",
+          "const runId = pm.environment.get(\"runId\");",
+          "",
+          "if (!pm.environment.get(\"spaceKey\")) pm.environment.set(\"spaceKey\", \"ENG\" + runId);",
+          "if (!pm.environment.get(\"spaceName\")) pm.environment.set(\"spaceName\", \"Engineering \" + runId);",
+          "",
+          "if (!pm.environment.get(\"articleTitle\")) pm.environment.set(\"articleTitle\", \"Onboarding \" + runId);",
+          "if (!pm.environment.get(\"articleTitleUpdated\")) pm.environment.set(\"articleTitleUpdated\", \"Onboarding Updated \" + runId);",
+          "if (!pm.environment.get(\"articleContentV1\")) pm.environment.set(\"articleContentV1\", \"Welcome to the team! (v1) \" + runId);",
+          "if (!pm.environment.get(\"articleContentV2\")) pm.environment.set(\"articleContentV2\", \"Welcome to the team! (v2) \" + runId);",
+          "",
+          "if (!pm.environment.get(\"draftTitle\")) pm.environment.set(\"draftTitle\", \"Draft Only \" + runId);",
+          "if (!pm.environment.get(\"draftContentV1\")) pm.environment.set(\"draftContentV1\", \"This draft should not be visible to viewers. \" + runId);",
+          "",
+          "if (!pm.environment.get(\"tagName\")) pm.environment.set(\"tagName\", \"DevOps\" + runId);",
+          "// Lowercase variant used to assert case-insensitive uniqueness",
+          "pm.environment.set(\"tagNameLower\", (pm.environment.get(\"tagName\") || \"\").toLowerCase());",
+          "",
+          "if (!pm.environment.get(\"commentBody\")) pm.environment.set(\"commentBody\", \"Nice update! \" + runId);",
+          "",
+          "if (!pm.environment.get(\"searchQuery\")) pm.environment.set(\"searchQuery\", \"Welcome\");"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Auth",
+      "item": [
+        {
+          "name": "Login - Admin (admin1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin1\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"BaseResponse.statusCode present\", function () { pm.expect(json.statusCode).to.be.a(\"number\"); });",
+                  "pm.environment.set(\"adminToken\", json.data.token);",
+                  "pm.environment.set(\"adminRole\", json.data.role);",
+                  "pm.test(\"token saved to env: adminToken\", function(){ pm.expect(pm.environment.get(\"adminToken\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login - Editor (editor1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"editor1\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"BaseResponse.statusCode present\", function () { pm.expect(json.statusCode).to.be.a(\"number\"); });",
+                  "pm.environment.set(\"editorToken\", json.data.token);",
+                  "pm.environment.set(\"editorRole\", json.data.role);",
+                  "pm.test(\"token saved to env: editorToken\", function(){ pm.expect(pm.environment.get(\"editorToken\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login - Viewer (viewer1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"viewer1\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"BaseResponse.statusCode present\", function () { pm.expect(json.statusCode).to.be.a(\"number\"); });",
+                  "pm.environment.set(\"viewerToken\", json.data.token);",
+                  "pm.environment.set(\"viewerRole\", json.data.role);",
+                  "pm.test(\"token saved to env: viewerToken\", function(){ pm.expect(pm.environment.get(\"viewerToken\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "02 - Spaces (ADMIN)",
+      "item": [
+        {
+          "name": "Create Space",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"spaceKey\": \"{{spaceKey}}\",\n  \"name\": \"{{spaceName}}\"\n}"
+            },
+            "url": "{{baseUrl}}/spaces"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"spaceId\", json.data.id);",
+                  "pm.environment.set(\"spaceKey\", json.data.spaceKey);",
+                  "pm.test(\"space created\", function(){ pm.expect(json.data.spaceKey).to.eql(pm.environment.get(\"spaceKey\")); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List Spaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces?page=0&size=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"page/size/total present\", function () {",
+                  "  pm.expect(json.page).to.be.a(\"number\");",
+                  "  pm.expect(json.size).to.be.a(\"number\");",
+                  "  pm.expect(json.total).to.be.a(\"number\");",
+                  "});",
+                  "pm.test(\"data is array\", function () { pm.expect(json.data).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Space by Key",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "03 - Article Workflow (EDITOR)",
+      "item": [
+        {
+          "name": "Create Article (DRAFT + version #1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{articleTitle}}\",\n  \"content\": \"{{articleContentV1}}\"\n}"
+            },
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"articleId\", json.data.id);",
+                  "pm.environment.set(\"articleSlug\", json.data.slug);",
+                  "pm.environment.set(\"currentVersionNo\", json.data.currentVersionNo);",
+                  "pm.test(\"articleId saved\", function(){ pm.expect(pm.environment.get(\"articleId\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Update Draft Title (PATCH /articles/{id})",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{articleTitleUpdated}}\"\n}"
+            },
+            "url": "{{baseUrl}}/articles/{{articleId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Add Version #2 (DRAFT only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"{{articleContentV2}}\"\n}"
+            },
+            "url": "{{baseUrl}}/articles/{{articleId}}/versions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"version2No\", json.data.versionNo);",
+                  "pm.test(\"version2No is 2\", function(){ pm.expect(json.data.versionNo).to.eql(2); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Submit Review Request (DRAFT -> IN_REVIEW)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/review-requests"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"reviewRequestId\", json.data.id);",
+                  "pm.test(\"reviewRequestId saved\", function(){ pm.expect(pm.environment.get(\"reviewRequestId\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Archive while IN_REVIEW (Option A) -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/archive"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=true\", function () { pm.expect(json.error).to.eql(true); });",
+                  "pm.test(\"message mentions review\", function(){ pm.expect((json.message || \"\").toLowerCase()).to.include(\"review\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Reject Review (IN_REVIEW -> DRAFT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Needs changes\"\n}"
+            },
+            "url": "{{baseUrl}}/review-requests/{{reviewRequestId}}/reject"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Archive Article (DRAFT -> ARCHIVED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/archive"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"status is ARCHIVED\", function(){ pm.expect(json.data.status).to.eql(\"ARCHIVED\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "List Articles (includeArchived=false) -> should hide archived",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles?includeArchived=false&page=0&size=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "const id = Number(pm.environment.get(\"articleId\"));",
+                  "const found = (json.data || []).some(a => a.id === id);",
+                  "pm.test(\"archived article not present\", function(){ pm.expect(found).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "List Articles (includeArchived=true) -> should show archived",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles?includeArchived=true&page=0&size=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "const id = Number(pm.environment.get(\"articleId\"));",
+                  "const found = (json.data || []).some(a => a.id === id);",
+                  "pm.test(\"archived article present\", function(){ pm.expect(found).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Unarchive Article (ARCHIVED -> DRAFT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/unarchive"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"status is DRAFT\", function(){ pm.expect(json.data.status).to.eql(\"DRAFT\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Submit Review Request again (DRAFT -> IN_REVIEW)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/review-requests"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"reviewRequestId2\", json.data.id);",
+                  "pm.test(\"reviewRequestId2 saved\", function(){ pm.expect(pm.environment.get(\"reviewRequestId2\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Approve Review (IN_REVIEW -> PUBLISHED)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/review-requests/{{reviewRequestId2}}/approve"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"review approved\", function(){ pm.expect(json.data.status).to.eql(\"APPROVED\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+
+        {
+          "name": "Get Article by Slug (EDITOR)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles/{{articleSlug}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"article is published\", function(){ pm.expect(json.data.status).to.eql(\"PUBLISHED\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "04 - Comments (EDITOR then VIEWER)",
+      "item": [
+        {
+          "name": "Add Comment on Version #2 (EDITOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"{{commentBody}}\"\n}"
+            },
+            "url": "{{baseUrl}}/articles/{{articleId}}/versions/{{version2No}}/comments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"commentId\", json.data.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List Comments (VIEWER)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{viewerToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/versions/{{version2No}}/comments?page=0&size=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "const cid = Number(pm.environment.get(\"commentId\"));",
+                  "const found = (json.data || []).some(c => c.id === cid);",
+                  "pm.test(\"comment visible to viewer (published article)\", function(){ pm.expect(found).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "05 - Tags (EDITOR)",
+      "item": [
+        {
+          "name": "Create Tag",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{tagName}}\"\n}"
+            },
+            "url": "{{baseUrl}}/tags"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"tagId\", json.data.id);",
+                  "pm.test(\"tagId saved\", function(){ pm.expect(pm.environment.get(\"tagId\")).to.be.ok; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create Tag with different case (should fail 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{tagNameLower}}\"\n}"
+            },
+            "url": "{{baseUrl}}/tags"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=true\", function () { pm.expect(json.error).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Attach Tag to Article",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tagId\": \"{{tagId}}\"\n}"
+            },
+            "url": "{{baseUrl}}/articles/{{articleId}}/tags"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove Tag from Article",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/articles/{{articleId}}/tags/{{tagId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "06 - Search (VIEWER + includeArchived behavior)",
+      "item": [
+        {
+          "name": "Search (VIEWER) - only published",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{viewerToken}}" }
+            ],
+            "url": "{{baseUrl}}/search?spaceKey={{spaceKey}}&q={{searchQuery}}&includeArchived=true&page=0&size=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"data is array\", function () { pm.expect(json.data).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "07 - Viewer cannot see drafts (create a draft + assert 404)",
+      "item": [
+        {
+          "name": "Create Draft-only Article (EDITOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"{{draftTitle}}\",\n  \"content\": \"{{draftContentV1}}\"\n}"
+            },
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.environment.set(\"draftArticleId\", json.data.id);",
+                  "pm.environment.set(\"draftSlug\", json.data.slug);",
+                  "pm.test(\"draft created\", function(){ pm.expect(json.data.status).to.eql(\"DRAFT\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Draft by Slug (VIEWER) -> 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{viewerToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/articles/{{draftSlug}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BaseResponse.error=true\", function () { pm.expect(json.error).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+
+    {
+      "name": "08 - Audit",
+      "item": [
+        {
+          "name": "Audit Search (EDITOR)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{editorToken}}" }
+            ],
+            "url": "{{baseUrl}}/audit?page=0&size=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"data is array\", function () { pm.expect(json.data).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Space Activity Feed (VIEWER) - public events only",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{viewerToken}}" }
+            ],
+            "url": "{{baseUrl}}/spaces/{{spaceKey}}/activity?page=0&size=50"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.test(\"BasePageResponse.error=false\", function () { pm.expect(json.error).to.eql(false); });",
+                  "pm.test(\"data is array\", function () { pm.expect(json.data).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
